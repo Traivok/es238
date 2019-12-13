@@ -1,7 +1,8 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <ESPmDNS.h>
+#include <ESPmDNS.h>"
+#include <string.h>
 
 // lock, target_lock defs 
 #define LOCK_OPEN true
@@ -22,7 +23,7 @@
 /* Sensors Pins */
 #define LUMINOSITY_PIN  33
 #define PROXIMITY_PIN   34
-#define TEMPERATURE_PIN 35
+#define TEMPERATURE_PIN 32
 /* Sensors Pins */
 
 /* Actuator Pins */
@@ -51,7 +52,7 @@ public:
     if (num_samples < MAX_SAMPLES) {
       ++num_samples;
       temperature_acc += analogRead(TEMPERATURE_PIN) * TEMPERATURE_CONSTANT;
-  
+      
       if (luminosity == LU_DARK) {
         if (analogRead(LUMINOSITY_PIN) <= LUMINOSITY_THRESHOLD) {
           luminosity = LU_LIGHT;
@@ -94,13 +95,15 @@ private:
 };
 /* Sensors */
 
+char lock_target[10] = "";
+
 /* Actuators */
 bool lock_state = LOCK_CLOSED;
 /* Actuators */
 
 /* WiFi Global Variables */
-const char* ssid = "CINGUESTS";
-const char* password = "acessocin";
+const char* ssid = "Lenovo K6";
+const char* password = "perdiojogo";
 
 WebServer server(80);
 /* WiFi Global Variables */
@@ -114,14 +117,9 @@ void handleGet() {
   const size_t capacity = JSON_OBJECT_SIZE(4) + 140;
   
   DynamicJsonDocument doc(capacity);
-//  doc["temperature"] = samples.temperature();
-//  doc["proximity"]   = (samples.proximity == PIR_NEAR) ? "near" : "far";
-//  doc["luminosity"]  = (samples.luminosity == LU_LIGHT) ? "light" : "dark";
-//  doc["lock_state"]  = (lock_state == LOCK_CLOSED) ? "closed" : "open";  
-
-  doc["temperature"] = random(180, 240) / 10.0;
-  doc["proximity"]   = random(1, 0) ? "near" : "far";
-  doc["luminosity"]  = random(1,0) ? "light" : "dark";
+  doc["temperature"] = samples.temperature();
+  doc["proximity"]   = (samples.proximity == PIR_NEAR) ? "near" : "far";
+  doc["luminosity"]  = (samples.luminosity == LU_LIGHT) ? "light" : "dark";
   doc["lock_state"]  = (lock_state == LOCK_CLOSED) ? "closed" : "open";  
   
   Serial.println("My Response: ");
@@ -136,10 +134,13 @@ void handleGet() {
 
 void handlePost() {
   Serial.println("POST /");
-  
+
   const size_t capacity = JSON_OBJECT_SIZE(1) + 60;
   DynamicJsonDocument doc(capacity);
-  DeserializationError err = deserializeJson(doc, server.arg("plain")).code();
+
+  String postBody = server.arg("plain");
+  
+  DeserializationError err = deserializeJson(doc, postBody).code();
 
   if (err) {
     String response = "Deserialization error " + String(err.c_str()) + "\nMessage: ";
@@ -148,7 +149,13 @@ void handlePost() {
     Serial.println(response);
     server.send(400, "text/plain", response);
   } else {
+    Serial.println("Post information: ");
+    serializeJsonPretty(doc, Serial);
+    Serial.println();
+
     server.send(200);
+
+    strcpy(lock_target, doc["lock_target"]);
   }
 }
 
@@ -170,11 +177,14 @@ void handleNotFound() {
 void setup() {
   Serial.begin(115200);
 
+  delay(5000);
+
   /* Pin Modes */
 
   /* Pin Modes */
   
   /* WiFi */
+  Serial.println();
   Serial.print("Connecting to: ");
   Serial.println(ssid);
 
