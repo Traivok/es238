@@ -35,8 +35,8 @@
 /* Sensors */
 class Samples {
 public:
-  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (5.0 * 1000.0) / (1023.0 * 3.0 * 100.0), int LUMINOSITY_THRESHOLD = 6)
-  : MAX_SAMPLES(MAX_SAMPLES), TEMPERATURE_CONSTANT(TEMPERATURE_CONSTANT), LUMINOSITY_THRESHOLD(LUMINOSITY_THRESHOLD) { 
+  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (4.0 * 1000.0) / (4095.0 * 3.0 * 10.0), int LUMINOSITY_THRESHOLD = 400, int PROXIMITY_TRESHOLD = 3000)
+  : MAX_SAMPLES(MAX_SAMPLES), TEMPERATURE_CONSTANT(TEMPERATURE_CONSTANT), LUMINOSITY_THRESHOLD(LUMINOSITY_THRESHOLD), PROXIMITY_TRESHOLD(PROXIMITY_TRESHOLD) { 
     clear();
   }
   
@@ -53,13 +53,13 @@ public:
       temperature_acc += analogRead(TEMPERATURE_PIN) * TEMPERATURE_CONSTANT;
   
       if (luminosity == LU_DARK) {
-        if (analogRead(TEMPERATURE_PIN) <= LUMINOSITY_THRESHOLD) {
+        if (analogRead(LUMINOSITY_PIN) <= LUMINOSITY_THRESHOLD) {
           luminosity = LU_LIGHT;
         }
       }
   
       if (proximity == PIR_FAR) {
-        if (digitalRead(PROXIMITY_PIN))
+        if (analogRead(PROXIMITY_PIN) >= PROXIMITY_TRESHOLD)
           proximity = PIR_NEAR;
       }
     } else {
@@ -78,6 +78,7 @@ public:
   
   const float TEMPERATURE_CONSTANT;
   const int LUMINOSITY_THRESHOLD;
+  const int PROXIMITY_TRESHOLD;
 
   bool luminosity;
   bool proximity; 
