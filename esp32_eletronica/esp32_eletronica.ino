@@ -27,17 +27,17 @@
 /* Sensors Pins */
 
 /* Actuator Pins */
-#define RED_PIN     2
+#define RED_PIN     4
 #define GREEN_PIN   0
-#define LOCK_PIN    15
+#define LOCK_PIN    14
 #define BUZZER_PIN  4
 /* Actuator Pins */
 
 /* Sensors */
 class Samples {
 public:
-  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (4.0 * 1000.0) / (4095.0 * 3.0 * 10.0), int LUMINOSITY_THRESHOLD = 400, int PROXIMITY_TRESHOLD = 3000)
-  : MAX_SAMPLES(MAX_SAMPLES), TEMPERATURE_CONSTANT(TEMPERATURE_CONSTANT), LUMINOSITY_THRESHOLD(LUMINOSITY_THRESHOLD), PROXIMITY_TRESHOLD(PROXIMITY_TRESHOLD) { 
+  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (4.0 * 1000.0) / (4095.0 * 3.0 * 10.0), int LUMINOSITY_THRESHOLD = 400, int PROXIMITY_TRESHOLD = 3000, int FIRE_THRESHOLD = 50)
+  : MAX_SAMPLES(MAX_SAMPLES), TEMPERATURE_CONSTANT(TEMPERATURE_CONSTANT), LUMINOSITY_THRESHOLD(LUMINOSITY_THRESHOLD), PROXIMITY_TRESHOLD(PROXIMITY_TRESHOLD), FIRE_THRESHOLD(FIRE_THRESHOLD) { 
     clear();
   }
   
@@ -80,6 +80,8 @@ public:
   const float TEMPERATURE_CONSTANT;
   const int LUMINOSITY_THRESHOLD;
   const int PROXIMITY_TRESHOLD;
+  const int FIRE_THRESHOLD;
+  
 
   bool luminosity;
   bool proximity; 
@@ -87,6 +89,24 @@ public:
   float temperature() {
     return temperature_acc / float(num_samples);
   }
+
+  bool isItHot(){
+    if (temperature() >= FIRE_THRESHOLD){
+      return true;
+    }
+    else{
+      return false;
+    }
+  }
+
+  bool isItClose(){
+    return proximity;
+  }
+
+  bool isItBright(){
+    return luminosity;
+  }
+  
   
 private:
   float temperature_acc;
@@ -184,47 +204,62 @@ void setup() {
   /* Pin Modes */
   
   /* WiFi */
-  Serial.println();
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
+//  Serial.println();
+//  Serial.print("Connecting to: ");
+//  Serial.println(ssid);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  
-  if (MDNS.begin("esp32")) {
-    Serial.println("MDNS responder started");
-  }
-    
-  Serial.println();
-  Serial.println("WiFi connected.");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  server.begin();
-
-  server.on("/", HTTP_GET, handleGet);
-  server.on("/", HTTP_POST, handlePost);
-  server.onNotFound(handleNotFound);
-  server.begin();
-
-  Serial.println("HTTP server started");
+//  WiFi.mode(WIFI_STA);
+//  WiFi.begin(ssid, password);
+//  while (WiFi.status() != WL_CONNECTED) {
+//    delay(500);
+//    Serial.print(".");
+//  }
+//  Serial.println();
+//  
+//  if (MDNS.begin("esp32")) {
+//    Serial.println("MDNS responder started");
+//  }
+//    
+//  Serial.println();
+//  Serial.println("WiFi connected.");
+//  Serial.print("IP address: ");
+//  Serial.println(WiFi.localIP());
+//  server.begin();
+//
+//  server.on("/", HTTP_GET, handleGet);
+//  server.on("/", HTTP_POST, handlePost);
+//  server.onNotFound(handleNotFound);
+//  server.begin();
+//
+//  Serial.println("HTTP server started");
   /* WiFi */
 }
 
 void loop() {
+  /*
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();
   } else {
     Serial.println("Wifi not connected");
   }
-
+*/
   samples.sample();
-
   samples.print();
+
+  //if (samples.isItHot()){
+    //digitalWrite(RED_PIN, LOW); //will turn on red LED
+    //digitalWrite(GREEN_PIN, HIGH); //will turn off green LED
+  //}
+  //else{
+   // digitalWrite(RED_PIN, HIGH);
+   // digitalWrite(GREEN_PIN, LOW);
+ // }
+
+  digitalWrite(13, HIGH);
+  digitalWrite(12, HIGH);
+  digitalWrite(14, HIGH);
+  
+  
   Serial.print("Lock State: ");
   Serial.println(lock_state == LOCK_OPEN ? "open" : "closed");
   
