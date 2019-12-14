@@ -1,8 +1,9 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <ESPmDNS.h>"
+#include <ESPmDNS.h>
 #include <string.h>
+#include <EasyBuzzer.h>
 
 // lock, target_lock defs 
 #define LOCK_OPEN true
@@ -21,22 +22,22 @@
 #define LU_DARK false
 
 /* Sensors Pins */
+#define TEMPERATURE_PIN 32
 #define LUMINOSITY_PIN  33
 #define PROXIMITY_PIN   34
-#define TEMPERATURE_PIN 32
 /* Sensors Pins */
 
 /* Actuator Pins */
 #define RED_PIN     4
 #define GREEN_PIN   0
-#define LOCK_PIN    14
-#define BUZZER_PIN  4
+#define LOCK_PIN    13
+#define BUZZER_PIN  12
 /* Actuator Pins */
 
 /* Sensors */
 class Samples {
 public:
-  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (4.0 * 1000.0) / (4095.0 * 3.0 * 10.0), int LUMINOSITY_THRESHOLD = 400, int PROXIMITY_TRESHOLD = 3000, int FIRE_THRESHOLD = 50)
+  Samples(int MAX_SAMPLES = 100, float TEMPERATURE_CONSTANT = (4.0 * 1000.0) / (4095.0 * 3.0 * 10.0), int LUMINOSITY_THRESHOLD = 400, int PROXIMITY_TRESHOLD = 3000, int FIRE_THRESHOLD = 30)
   : MAX_SAMPLES(MAX_SAMPLES), TEMPERATURE_CONSTANT(TEMPERATURE_CONSTANT), LUMINOSITY_THRESHOLD(LUMINOSITY_THRESHOLD), PROXIMITY_TRESHOLD(PROXIMITY_TRESHOLD), FIRE_THRESHOLD(FIRE_THRESHOLD) { 
     clear();
   }
@@ -49,22 +50,22 @@ public:
   }
   
   void sample() {
-    if (num_samples < MAX_SAMPLES) {
-      ++num_samples;
-      temperature_acc += analogRead(TEMPERATURE_PIN) * TEMPERATURE_CONSTANT;
-      
-      if (luminosity == LU_DARK) {
-        if (analogRead(LUMINOSITY_PIN) <= LUMINOSITY_THRESHOLD) {
-          luminosity = LU_LIGHT;
-        }
+    if (num_samples >= MAX_SAMPLES) {
+      clear();
+    }
+
+    ++num_samples;
+    temperature_acc += analogRead(TEMPERATURE_PIN) * TEMPERATURE_CONSTANT;
+
+    if (luminosity == LU_DARK) {
+      if (analogRead(LUMINOSITY_PIN) <= LUMINOSITY_THRESHOLD) {
+        luminosity = LU_LIGHT;
       }
-  
-      if (proximity == PIR_FAR) {
-        if (analogRead(PROXIMITY_PIN) >= PROXIMITY_TRESHOLD)
-          proximity = PIR_NEAR;
-      }
-    } else {
-      clear();    
+    }
+
+    if (proximity == PIR_FAR) {
+      if (analogRead(PROXIMITY_PIN) >= PROXIMITY_TRESHOLD)
+        proximity = PIR_NEAR;
     }
   }
 
@@ -197,71 +198,111 @@ void handleNotFound() {
 void setup() {
   Serial.begin(115200);
 
-  delay(5000);
-
   /* Pin Modes */
+  pinMode(LUMINOSITY_PIN, INPUT);
+  pinMode(PROXIMITY_PIN, INPUT);
+  pinMode(TEMPERATURE_PIN, INPUT);
 
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(LOCK_PIN, OUTPUT);
+  EasyBuzzer.setPin(BUZZER_PIN);
   /* Pin Modes */
   
   /* WiFi */
-//  Serial.println();
-//  Serial.print("Connecting to: ");
-//  Serial.println(ssid);
+  Serial.println();
+  Serial.print("Connecting to: ");
+  Serial.println(ssid);
 
-//  WiFi.mode(WIFI_STA);
-//  WiFi.begin(ssid, password);
-//  while (WiFi.status() != WL_CONNECTED) {
-//    delay(500);
-//    Serial.print(".");
-//  }
-//  Serial.println();
-//  
-//  if (MDNS.begin("esp32")) {
-//    Serial.println("MDNS responder started");
-//  }
-//    
-//  Serial.println();
-//  Serial.println("WiFi connected.");
-//  Serial.print("IP address: ");
-//  Serial.println(WiFi.localIP());
-//  server.begin();
-//
-//  server.on("/", HTTP_GET, handleGet);
-//  server.on("/", HTTP_POST, handlePost);
-//  server.onNotFound(handleNotFound);
-//  server.begin();
-//
-//  Serial.println("HTTP server started");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  
+  if (MDNS.begin("esp32")) {
+    Serial.println("MDNS responder started");
+  }
+    
+  Serial.println();
+  Serial.println("WiFi connected.");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
+
+  server.on("/", HTTP_GET, handleGet);
+  server.on("/", HTTP_POST, handlePost);
+  server.onNotFound(handleNotFound);
+  server.begin();
+
+  Serial.println("HTTP server started");
   /* WiFi */
+
+  delay(5000);
 }
 
+int ignore_buzzer_counter = 0;
+int lock_delay = 0;
+bool internal_lock_target;
+
 void loop() {
-  /*
+  Serial.println();
+  
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();
   } else {
     Serial.println("Wifi not connected");
   }
-*/
+
   samples.sample();
   samples.print();
 
-  //if (samples.isItHot()){
-    //digitalWrite(RED_PIN, LOW); //will turn on red LED
-    //digitalWrite(GREEN_PIN, HIGH); //will turn off green LED
-  //}
-  //else{
-   // digitalWrite(RED_PIN, HIGH);
-   // digitalWrite(GREEN_PIN, LOW);
- // }
-
-  digitalWrite(13, HIGH);
-  digitalWrite(12, HIGH);
-  digitalWrite(14, HIGH);
+  if (samples.isItClose() || samples.isItBright()) {
+    if (ignore_buzzer_counter-- == 0) {
+      ignore_buzzer_counter = 50;
+      Serial.println("Proximity or Luminosity threshold reached. Beeping...");
+      EasyBuzzer.beep(220, 20, []() { Serial.println("Beep Stopped"); });
+      }
+  }
   
+  EasyBuzzer.update();
+  
+  if (samples.isItHot()) {
+    Serial.println("Critical Temperature!");
+    digitalWrite(RED_PIN, LOW); //will turn on red LED
+    digitalWrite(GREEN_PIN, HIGH); //will turn off green LED
+  } else {
+    digitalWrite(RED_PIN, HIGH);
+    digitalWrite(GREEN_PIN, LOW);
+  }
+
+  if (lock_delay <= 0) {
+    bool aux_lock_target;
+    if (String(lock_target).equals("open"))
+      aux_lock_target = LOCK_OPEN;
+    else
+      aux_lock_target = LOCK_CLOSED;
+    
+    if (aux_lock_target != lock_state) {
+      lock_delay = 100;
+      internal_lock_target = aux_lock_target;
+      Serial.println("Turning motor: ON");
+      digitalWrite(LOCK_PIN, HIGH);
+    }
+  } else {
+    --lock_delay;
+    if (lock_delay <= 0) {
+      lock_state = internal_lock_target;
+      Serial.println("Turning motor: OFF");
+      digitalWrite(LOCK_PIN, LOW);
+    }
+  }
   
   Serial.print("Lock State: ");
   Serial.println(lock_state == LOCK_OPEN ? "open" : "closed");
   
+  Serial.println();
   delay(50);
 }
