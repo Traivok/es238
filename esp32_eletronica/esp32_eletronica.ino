@@ -271,11 +271,11 @@ void loop() {
   
   if (samples.isItHot()) {
     Serial.println("Critical Temperature!");
-    digitalWrite(RED_PIN, LOW); //will turn on red LED
-    digitalWrite(GREEN_PIN, HIGH); //will turn off green LED
+    digitalWrite(RED_PIN, HIGH); //will turn on red LED
+    digitalWrite(GREEN_PIN, LOW); //will turn off green LED
   } else {
-    digitalWrite(RED_PIN, HIGH);
-    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, HIGH);
   }
 
   if (lock_delay <= 0) {
