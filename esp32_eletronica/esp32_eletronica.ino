@@ -153,6 +153,15 @@ void handleGet() {
   server.send(200, "application/json", content);  
 }
 
+void handleOptions() {
+  Serial.println("OPTIONS /");
+
+  server.sendHeader("Access-Control-Allow-Methods", "*");
+  server.sendHeader("Access-Control-Allow-Headers", "*");
+
+  server.send(200);
+}
+
 void handlePost() {
   Serial.println("POST /");
 
@@ -160,7 +169,7 @@ void handlePost() {
   DynamicJsonDocument doc(capacity);
 
   String postBody = server.arg("plain");
-  
+
   DeserializationError err = deserializeJson(doc, postBody).code();
 
   if (err) {
@@ -181,18 +190,26 @@ void handlePost() {
 }
 
 void handleNotFound() {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += server.method();
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
+  if (server.method() == HTTP_OPTIONS) {
+      Serial.println("OPTIONS /");
+      server.sendHeader("Access-Control-Max-Age", "10000");
+      server.sendHeader("Access-Control-Allow-Methods", "PUT,POST,GET,OPTIONS");
+      server.sendHeader("Access-Control-Allow-Headers", "*");
+      server.send(204);
+    } else {
+      String message = "File Not Found\n\n";
+      message += "URI: ";
+      message += server.uri();
+      message += "\nMethod: ";
+      message += server.method();
+      message += "\nArguments: ";
+      message += server.args();
+      message += "\n";
+      for (uint8_t i = 0; i < server.args(); i++) {
+        message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+      }
+      server.send(404, "text/plain", message);
+    }
 }
 
 void setup() {
@@ -235,6 +252,7 @@ void setup() {
   server.on("/", HTTP_GET, handleGet);
   server.on("/", HTTP_POST, handlePost);
   server.onNotFound(handleNotFound);
+  server.enableCORS(true);
   server.begin();
 
   Serial.println("HTTP server started");
